@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tvorba rozvrhu</title>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 900px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #schedule-container {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 40px repeat(14, 85px);
+            grid-template-rows: 30px repeat(5, 120px);
+            gap: 1px;
+            background-color: #ccc;
+            border: 1px solid #999;
+        }
+
+        .cell {
+            background-color: #fff;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cell:not(.day-label):not(.header-cell) {
+            border-right: 1px dashed #eee;
+        }
+
+        .header-cell {
+            background-color: #333;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        .day-label {
+            background-color: #e0e0e0;
+            text-orientation: mixed;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #444;
+            z-index: 2;
+        }
+
+        .event {
+            padding: 2px 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            font-family: 'Segoe UI', sans-serif;
+            position: relative;
+            z-index: 10;
+            box-sizing: border-box;
+            overflow: hidden;
+            align-self: start;
+        }
+
+        .subject-code {
+            font-weight: 800;
+            font-size: 13px;
+            line-height: 1.2;
+        }
+
+        .details {
+            font-size: 10px;
+            line-height: 1.1;
+            margin-top: 2px;
+        }
+
+        .type-info {
+            font-size: 9px;
+            text-transform: uppercase;
+            opacity: 0.7;
+            margin-bottom: 2px;
+        }
+
+        .lecture {
+            background-color: #d1e7dd;
+            border-left: 5px solid #198754;
+            color: #0f5132;
+        }
+
+        .seminar {
+            background-color: #f8f9fa;
+            border-left: 5px solid #adb5bd;
+            color: #495057;
+            transition: all 0.1s ease-in-out;
+        }
+
+        .seminar:hover {
+            background-color: #e9ecef;
+            transform: scale(1.02);
+            z-index: 100;
+        }
+
+        .seminar.selected {
+            background-color: #cfe2ff;
+            border-left: 5px solid #0d6efd;
+            color: #084298;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 50;
+        }
+
+        .seminar.dimmed {
+            opacity: 0.25;
+            filter: grayscale(80%);
+            pointer-events: none;
+        }
+
+        .export-mode .seminar.selected {
+            height: calc(100% - 4px) !important;
+            margin-top: 0 !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Rozvrh</h1>
+
+    <button onclick="downloadImage()">📸 Uložit jako obrázek (PNG)</button>
+
+    <div id="schedule-container">
+        <div class="grid" id="grid">
+        </div>
+    </div>
+
+    <script>
+
+        const subjects = [
+            // --- PONDĚLÍ (Day 1) ---
+            { id: 1, day: 1, start: 1, duration: 2, subject: 'AJAI_2', type: 'seminar', room: 'U8', teacher: 'Dostálová' },
+            { id: 2, day: 1, start: 1, duration: 2, subject: 'WT1', type: 'seminar', room: 'V7', teacher: 'Jelínek' },
+
+            { id: 3, day: 1, start: 3, duration: 1, subject: 'ZAP', type: 'lecture', room: 'P1', teacher: 'Dostálová' },
+
+            { id: 4, day: 1, start: 4, duration: 2, subject: 'DB2', type: 'lecture', room: 'Centrum', teacher: 'Bureš' },
+
+            { id: 5, day: 1, start: 7, duration: 2, subject: 'APAi', type: 'seminar', room: 'V9', teacher: 'Bílek' },
+            { id: 6, day: 1, start: 7, duration: 2, subject: 'DB2', type: 'seminar', room: 'V7', teacher: 'Valentová' },
+
+            { id: 7, day: 1, start: 9, duration: 2, subject: 'APAi', type: 'seminar', room: 'V9', teacher: 'Bílek' },
+
+            // --- ÚTERÝ (Day 2) ---
+            { id: 8, day: 2, start: 1, duration: 2, subject: 'PG2', type: 'seminar', room: 'V9', teacher: 'Jeřábek' },
+            { id: 9, day: 2, start: 3, duration: 2, subject: 'PG2', type: 'seminar', room: 'V9', teacher: 'Jeřábek' },
+            { id: 10, day: 2, start: 1, duration: 2, subject: 'ZAP', type: 'seminar', room: 'U8', teacher: 'Dostálová' },
+            { id: 11, day: 2, start: 3, duration: 2, subject: 'ZAP', type: 'seminar', room: 'U18', teacher: 'Dostálová' },
+
+            { id: 12, day: 2, start: 5, duration: 2, subject: 'PS2', type: 'lecture', room: 'P3', teacher: 'Přibyl' },
+            { id: 13, day: 2, start: 7, duration: 2, subject: 'WT1', type: 'lecture', room: 'Centrum', teacher: 'Smrčka' },
+
+
+            { id: 14, day: 2, start: 10, duration: 2, subject: 'AJAI_2', type: 'seminar', room: 'U15', teacher: 'Čech' },
+            { id: 31, day: 2, start: 9, duration: 2, subject: 'WT1', type: 'seminar', room: 'V9', teacher: 'Smrčka' },
+
+            // --- STŘEDA (Day 3) ---
+            { id: 15, day: 3, start: 5, duration: 2, subject: 'PS2', type: 'seminar', room: 'EIT', teacher: 'Přibyl' },
+            { id: 16, day: 3, start: 7, duration: 2, subject: 'DB2', type: 'seminar', room: 'V9', teacher: 'Valentová' },
+            { id: 17, day: 3, start: 7, duration: 2, subject: 'PS2', type: 'seminar', room: 'EIT', teacher: 'Přibyl' },
+
+            { id: 18, day: 3, start: 9, duration: 2, subject: 'APAi', type: 'lecture', room: 'P3', teacher: 'Bílek' },
+
+            { id: 19, day: 3, start: 11, duration: 2, subject: 'AJAI_2', type: 'seminar', room: 'U14', teacher: 'Čech' },
+            { id: 32, day: 3, start: 11, duration: 2, subject: 'APAi', type: 'seminar', room: 'V9', teacher: 'Bílek' },
+
+            // --- ČTVRTEK (Day 4) ---
+            { id: 20, day: 4, start: 1, duration: 2, subject: 'PG2', type: 'seminar', room: 'V9', teacher: 'Vopálenský' },
+            { id: 21, day: 4, start: 3, duration: 2, subject: 'AJAI_2', type: 'seminar', room: 'J1', teacher: 'Dostálová' },
+            { id: 22, day: 4, start: 1, duration: 2, subject: 'ZAP', type: 'seminar', room: 'U16', teacher: 'Dostálová' },
+            { id: 23, day: 4, start: 3, duration: 2, subject: 'WT1', type: 'seminar', room: 'V8', teacher: 'Jelínek' },
+
+            { id: 24, day: 4, start: 6, duration: 2, subject: 'PG2', type: 'lecture', room: 'Centrum', teacher: 'Richta' },
+            { id: 25, day: 4, start: 8, duration: 2, subject: 'MAT', type: 'lecture', room: 'P2', teacher: 'Stolín' },
+            { id: 26, day: 4, start: 10, duration: 2, subject: 'MAT', type: 'seminar', room: 'U15', teacher: 'Stolín' },
+            { id: 27, day: 4, start: 12, duration: 2, subject: 'PS2', type: 'seminar', room: 'EIT', teacher: 'Ježek' },
+            { id: 33, day: 4, start: 10, duration: 2, subject: 'PS2', type: 'seminar', room: 'EIT', teacher: 'Ježek' },
+
+            // --- PÁTEK (Day 5) ---
+            { id: 28, day: 5, start: 2, duration: 2, subject: 'MAT', type: 'seminar', room: 'U15', teacher: 'Stolín' },
+            { id: 29, day: 5, start: 4, duration: 2, subject: 'MAT', type: 'seminar', room: 'U15', teacher: 'Stolín' },
+            { id: 30, day: 5, start: 4, duration: 2, subject: 'DB2', type: 'seminar', room: 'V9', teacher: 'Valentová' },
+        ];
+
+        let selectedSeminars = new Set();
+
+        function init() {
+            renderGrid();
+            renderEvents();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            const corner = document.createElement('div');
+            corner.className = 'cell header-cell';
+            grid.appendChild(corner);
+
+            for (let i = 0; i <= 13; i++) {
+                const el = document.createElement('div');
+                el.className = 'cell header-cell';
+                el.innerText = i + ".";
+                grid.appendChild(el);
+            }
+
+            const days = ['Po', 'Út', 'St', 'Čt', 'Pá'];
+            days.forEach((day, index) => {
+                const dayLabel = document.createElement('div');
+                dayLabel.className = 'cell day-label';
+                dayLabel.style.gridRow = index + 2;
+                dayLabel.style.gridColumn = 1;
+                dayLabel.innerText = day;
+                grid.appendChild(dayLabel);
+
+                for (let i = 0; i <= 13; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.style.gridRow = index + 2;
+                    cell.style.gridColumn = i + 2;
+                    grid.appendChild(cell);
+                }
+            });
+        }
+
+        function renderEvents() {
+            document.querySelectorAll('.event').forEach(e => e.remove());
+            const grid = document.getElementById('grid');
+
+            for (let d = 1; d <= 5; d++) {
+                const dayEvents = subjects.filter(s => s.day === d);
+
+                dayEvents.sort((a, b) => a.start - b.start || b.duration - a.duration);
+
+                let timeMatrix = Array(14).fill(null).map(() => []);
+
+                dayEvents.forEach(ev => {
+                    let slotIndex = 0;
+                    let fits = false;
+
+                    while (!fits) {
+                        fits = true;
+                        for (let t = ev.start; t < ev.start + ev.duration; t++) {
+                            if (timeMatrix[t] && timeMatrix[t][slotIndex]) {
+                                fits = false;
+                                break;
+                            }
+                        }
+                        if (!fits) slotIndex++;
+                    }
+
+                    for (let t = ev.start; t < ev.start + ev.duration; t++) {
+                        if (timeMatrix[t]) timeMatrix[t][slotIndex] = true;
+                    }
+
+                    ev.visualSlot = slotIndex;
+                });
+
+                dayEvents.forEach(item => {
+                    let maxSlotsInRange = 0;
+                    for (let t = item.start; t < item.start + item.duration; t++) {
+                        if (timeMatrix[t] && timeMatrix[t].length > maxSlotsInRange) {
+                            maxSlotsInRange = timeMatrix[t].length;
+                        }
+                    }
+
+                    const rowHeight = 120;
+                    const heightPercent = 100 / Math.max(1, maxSlotsInRange);
+                    const topPercent = item.visualSlot * heightPercent;
+
+                    const el = document.createElement('div');
+                    el.classList.add('event');
+
+                    if (item.type === 'lecture') {
+                        el.classList.add('lecture');
+                    } else {
+                        el.classList.add('seminar');
+
+                        const isSelected = selectedSeminars.has(item.id);
+
+                        if (isSelected) {
+                            el.classList.add('selected');
+                        }
+
+                        const selectedSameSubject = [...selectedSeminars]
+                            .map(id => subjects.find(s => s.id === id))
+                            .find(s => s && s.subject === item.subject);
+
+                        if (selectedSameSubject && !isSelected && selectedSameSubject.subject === item.subject) {
+                            el.classList.add('dimmed');
+                        } else {
+                            el.onclick = () => toggleSeminar(item);
+                        }
+                    }
+
+                    el.style.gridColumnStart = item.start + 2;
+                    el.style.gridColumnEnd = `span ${item.duration}`;
+                    el.style.gridRowStart = item.day + 1;
+                    el.style.height = `calc(${heightPercent}% - 4px)`;
+                    el.style.marginTop = `calc(${topPercent / 100 * rowHeight}px)`;
+
+                    el.innerHTML = `
+                    <div class="subject-code">${item.subject}</div>
+                    <div class="type-info">${item.type === 'lecture' ? 'Přednáška' : 'Cvičení'}</div>
+                    ${maxSlotsInRange < 4 ? `<div class="details">${item.room} <br> ${item.teacher}</div>` : ''}
+                `;
+
+                    grid.appendChild(el);
+                });
+            }
+        }
+
+        function toggleSeminar(item) {
+            if (selectedSeminars.has(item.id)) {
+                selectedSeminars.delete(item.id);
+            } else {
+                if (checkConflict(item)) {
+                    alert("Kolize! V tomto čase už máš jiný předmět.");
+                    return;
+                }
+
+                subjects.forEach(s => {
+                    if (s.subject === item.subject && s.type === 'seminar' && selectedSeminars.has(s.id)) {
+                        selectedSeminars.delete(s.id);
+                    }
+                });
+
+                selectedSeminars.add(item.id);
+            }
+            renderEvents();
+        }
+
+        function checkConflict(newItem) {
+            const activeItems = subjects.filter(s => s.type === 'lecture' || selectedSeminars.has(s.id));
+
+            for (let other of activeItems) {
+                if (other.day === newItem.day) {
+                    const newEnd = newItem.start + newItem.duration;
+                    const otherEnd = other.start + other.duration;
+
+                    if (newItem.start < otherEnd && newEnd > other.start) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function downloadImage() {
+            const grid = document.getElementById('grid').cloneNode(true);
+
+            grid.querySelectorAll('.seminar:not(.selected)').forEach(e => e.remove());
+
+            grid.classList.add('export-mode');
+
+            grid.querySelectorAll('.seminar.selected').forEach(el => {
+                el.style.height = 'calc(100% - 4px)';
+                el.style.marginTop = '0';
+            });
+
+            const wrap = document.createElement('div');
+            wrap.style.background = 'white';
+            wrap.style.padding = '10px';
+            wrap.appendChild(grid);
+            document.body.appendChild(wrap);
+
+            html2canvas(wrap, {
+                scale: 2,
+                backgroundColor: '#ffffff'
+            }).then(canvas => {
+                const a = document.createElement('a');
+                a.download = 'rozvrh.png';
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+                wrap.remove();
+            });
+        }
+
+
+
+        init();
+
+    </script>
+
+</body>
+
+</html>
