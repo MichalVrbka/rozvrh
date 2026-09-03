@@ -1,449 +1,613 @@
 <!DOCTYPE html>
 <html lang="cs">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tvorba rozvrhu</title>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f4f4;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tvorba rozvrhu</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f5f1;
+    --paper:#ffffff;
+    --ink:#20241f;
+    --muted:#6b7066;
+    --line:#d9d6cc;
+    --ok:#2f6d4f;
+    --bad:#b3452e;
+    --lock:#3a3d38;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Iowan Old Style','Georgia',serif;
+    background:var(--bg);
+    color:var(--ink);
+    padding:28px 20px 60px;
+  }
+  h1{
+    font-family:'Charter','Georgia',serif;
+    font-weight:600;
+    font-size:1.9rem;
+    margin:0 0 2px;
+    letter-spacing:.2px;
+  }
+  .lede{
+    color:var(--muted);
+    font-size:.98rem;
+    max-width:640px;
+    margin:0 0 22px;
+    line-height:1.5;
+  }
+  .lede code{
+    background:#eceae2;
+    padding:1px 5px;
+    border-radius:3px;
+    font-family:'SFMono-Regular',Consolas,monospace;
+    font-size:.85em;
+  }
 
-        h1 {
-            margin-bottom: 10px;
-            color: #333;
-        }
+  .toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    align-items:center;
+    margin-bottom:18px;
+  }
+  button.reset{
+    font-family:inherit;
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    padding:9px 16px;
+    border-radius:3px;
+    cursor:pointer;
+    font-size:.9rem;
+  }
+  button.reset:hover{background:#3a3d38;}
 
-        .controls {
-            margin-bottom: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            max-width: 900px;
-        }
+  .legend{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    font-size:.82rem;
+    color:var(--muted);
+  }
+  .legend .swatch{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .legend .box{
+    width:14px;height:14px;border-radius:2px;display:inline-block;flex:none;
+  }
+  .box.lockdemo{background:repeating-linear-gradient(45deg,var(--lock),var(--lock) 3px,#55584f 3px,#55584f 6px);}
+  .box.seldemo{background:var(--ok);}
+  .box.confdemo{background:repeating-linear-gradient(45deg,#cfcbbd,#cfcbbd 3px,#e2ded0 3px,#e2ded0 6px);}
+  .box.availdemo{background:#fff;border:2px solid #3d5a80;}
 
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 10px;
-            transition: background 0.2s;
-        }
+  .layout{
+    display:flex;
+    gap:24px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
 
-        button:hover {
-            background-color: #0056b3;
-        }
+  .grid-wrap{
+    flex:1 1 780px;
+    overflow-x:auto;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:14px;
+  }
 
-        #schedule-container {
-            background: white;
-            padding: 10px;
-            border-radius: 4px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-            overflow-x: auto;
-            max-width: 100%;
-        }
+  .grid{
+    display:grid;
+    grid-template-columns: 74px repeat(13, minmax(78px,1fr));
+    gap:3px;
+    min-width:1150px;
+  }
 
-        .grid {
-            display: grid;
-            grid-template-columns: 40px repeat(14, 85px);
-            grid-template-rows: 30px repeat(5, 120px);
-            gap: 1px;
-            background-color: #ccc;
-            border: 1px solid #999;
-        }
+  .hour-head{
+    text-align:center;
+    font-size:.72rem;
+    color:var(--muted);
+    padding:4px 2px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  .hour-head b{
+    display:block;
+    font-size:.95rem;
+    color:var(--ink);
+    font-family:'Charter','Georgia',serif;
+  }
+  .corner{border-bottom:1px solid var(--line);}
 
-        .cell {
-            background-color: #fff;
-            position: relative;
-            z-index: 1;
-        }
+  .day-label{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    writing-mode:vertical-rl;
+    text-orientation:mixed;
+    font-family:'Charter','Georgia',serif;
+    font-weight:600;
+    font-size:1.02rem;
+    background:#f1efe7;
+    border-radius:4px;
+    letter-spacing:.5px;
+  }
 
-        .cell:not(.day-label):not(.header-cell) {
-            border-right: 1px dashed #eee;
-        }
+  .cell{
+    border-radius:4px;
+    padding:6px 7px;
+    font-size:.74rem;
+    line-height:1.3;
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:1px;
+    position:relative;
+    min-height:56px;
+  }
+  .cell .subj{
+    font-family:'Charter','Georgia',serif;
+    font-weight:700;
+    font-size:.92rem;
+  }
+  .cell .meta{opacity:.92;}
+  .cell .teacher{font-style:italic; opacity:.92;}
 
-        .header-cell {
-            background-color: #333;
-            color: white;
-            font-size: 14px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2;
-        }
+  .cell.lecture{
+    cursor:default;
+    background-image: repeating-linear-gradient(135deg, rgba(0,0,0,0.16) 0 6px, rgba(0,0,0,0) 6px 12px);
+  }
+  .cell.lecture::after{
+    content:"🔒";
+    position:absolute;
+    top:5px; right:7px;
+    font-size:.7rem;
+    opacity:.85;
+  }
 
-        .day-label {
-            background-color: #e0e0e0;
-            text-orientation: mixed;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: #444;
-            z-index: 2;
-        }
+  .cell.cviceni{cursor:pointer; transition:transform .1s ease;}
+  .cell.cviceni.available{filter:brightness(1);}
+  .cell.cviceni.available:hover{transform:translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,.18);}
+  .cell.cviceni.available::after{
+    content:"○";
+    position:absolute; top:4px; right:7px; font-size:.85rem; opacity:.85;
+  }
 
-        .event {
-            padding: 2px 4px;
-            border-radius: 4px;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            border: 1px solid rgba(0, 0, 0, 0.2);
-            font-family: 'Segoe UI', sans-serif;
-            position: relative;
-            z-index: 10;
-            box-sizing: border-box;
-            overflow: hidden;
-            align-self: start;
-        }
+  .cell.cviceni.selected{
+    outline:3px solid var(--ok);
+    outline-offset:-3px;
+  }
+  .cell.cviceni.selected::after{
+    content:"✓";
+    position:absolute; top:3px; right:7px; font-size:.85rem;
+    background:var(--ok); color:#fff; width:16px; height:16px;
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+  }
 
-        .subject-code {
-            font-weight: 800;
-            font-size: 13px;
-            line-height: 1.2;
-        }
+  .cell.cviceni.disabled{
+    cursor:not-allowed;
+    background:repeating-linear-gradient(45deg,#cfcbbd,#cfcbbd 5px,#e2ded0 5px,#e2ded0 10px) !important;
+    color:#8a8778;
+  }
+  .cell.cviceni.disabled .teacher,
+  .cell.cviceni.disabled .meta{opacity:.8;}
+  .cell.cviceni.disabled::after{
+    content:"✕";
+    position:absolute; top:4px; right:7px; font-size:.75rem; opacity:.7;
+  }
 
-        .details {
-            font-size: 10px;
-            line-height: 1.1;
-            margin-top: 2px;
-        }
+  .cell.cviceni.taken{
+    cursor:pointer;
+    background:repeating-linear-gradient(45deg,#cfcbbd,#cfcbbd 5px,#e2ded0 5px,#e2ded0 10px) !important;
+    color:#8a8778;
+  }
+  .cell.cviceni.taken .teacher,
+  .cell.cviceni.taken .meta{opacity:.8;}
+  .cell.cviceni.taken:hover{transform:translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,.18);}
+  .cell.cviceni.taken::after{
+    content:"↺";
+    position:absolute; top:4px; right:7px; font-size:.8rem; opacity:.75;
+  }
 
-        .type-info {
-            font-size: 9px;
-            text-transform: uppercase;
-            opacity: 0.7;
-            margin-bottom: 2px;
-        }
+  .empty{visibility:hidden;}
 
-        .lecture {
-            background-color: #d1e7dd;
-            border-left: 5px solid #198754;
-            color: #0f5132;
-        }
+  .sidebar{
+    flex:0 0 300px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:18px 18px 20px;
+    position:sticky;
+    top:20px;
+  }
+  .sidebar h2{
+    font-size:1.05rem;
+    margin:0 0 12px;
+    font-family:'Charter','Georgia',serif;
+  }
+  .sum-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+    padding:8px 0;
+    border-bottom:1px solid var(--line);
+    font-size:.86rem;
+  }
+  .sum-row:last-of-type{border-bottom:none;}
+  .sum-subj{font-weight:700;}
+  .sum-detail{color:var(--muted); text-align:right; font-size:.8rem; line-height:1.4;}
+  .sum-detail .warn{color:var(--bad); font-weight:600;}
+  .sum-total{
+    margin-top:14px;
+    padding-top:12px;
+    border-top:2px solid var(--ink);
+    font-size:.9rem;
+    display:flex;
+    justify-content:space-between;
+  }
 
-        .seminar {
-            background-color: #f8f9fa;
-            border-left: 5px solid #adb5bd;
-            color: #495057;
-            transition: all 0.1s ease-in-out;
-        }
+  .toast{
+    position:fixed;
+    bottom:22px;
+    left:50%;
+    transform:translateX(-50%) translateY(10px);
+    background:var(--ink);
+    color:#fff;
+    padding:10px 18px;
+    border-radius:5px;
+    font-size:.86rem;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease;
+    max-width:90vw;
+    text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 
-        .seminar:hover {
-            background-color: #e9ecef;
-            transform: scale(1.02);
-            z-index: 100;
-        }
-
-        .seminar.selected {
-            background-color: #cfe2ff;
-            border-left: 5px solid #0d6efd;
-            color: #084298;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            z-index: 50;
-        }
-
-        .seminar.dimmed {
-            opacity: 0.25;
-            filter: grayscale(80%);
-            pointer-events: none;
-        }
-
-        .export-mode .seminar.selected {
-            height: calc(100% - 4px) !important;
-            margin-top: 0 !important;
-        }
-    </style>
+  @media (max-width:900px){
+    .layout{flex-direction:column;}
+    .sidebar{position:static; width:100%;}
+  }
+</style>
 </head>
-
 <body>
 
-    <h1>Rozvrh</h1>
+  <h1>Tvorba rozvrhu</h1>
+  <p class="lede">
+    Přednášky (🔒) jsou pevně dané a nedají se měnit. Klikni na cvičení, které chceš zapsat —
+    z každého předmětu jde vybrat jen jedno a nejdou zvolit dvě věci ve stejný čas.
+    Časy hodin (<code>1.–13.</code>) jsou odhadem 7:00–19:50 po 50 min., uprav pole <code>HOURS</code> v kódu, pokud má vaše škola jiné rozvržení.
+  </p>
 
-    <button onclick="downloadImage()">📸 Uložit jako obrázek (PNG)</button>
+  <div class="toolbar">
+    <button class="reset" id="resetBtn">Vymazat výběr</button>
+    <button class="reset" id="exportBtn" style="background:var(--ok);">Stáhnout jako obrázek</button>
+    <div class="legend">
+      <span class="swatch"><span class="box lockdemo"></span> přednáška (pevná)</span>
+      <span class="swatch"><span class="box availdemo"></span> cvičení k výběru</span>
+      <span class="swatch"><span class="box seldemo"></span> vybráno</span>
+      <span class="swatch"><span class="box confdemo"></span> koliduje / nedostupné</span>
+      <span class="swatch"><span class="box confdemo"></span> už vybráno u jiné varianty (klikni pro přepnutí)</span>
+    </div>
+  </div>
 
-    <div id="schedule-container">
-        <div class="grid" id="grid">
-        </div>
+  <div class="layout">
+    <div class="grid-wrap">
+      <div class="grid" id="grid"></div>
     </div>
 
-    <script>
+    <aside class="sidebar">
+      <h2>Můj rozvrh</h2>
+      <div id="summary"></div>
+      <div class="sum-total"><span>Celkem hodin</span><span id="totalHours">0</span></div>
+    </aside>
+  </div>
 
-        const subjects = [
-            // --- PONDĚLÍ (Day 1) ---
-            { id: 1, day: 1, start: 1, duration: 2, subject: 'AJAI_2', type: 'seminar', room: 'U8', teacher: 'Dostálová' },
-            { id: 2, day: 1, start: 1, duration: 2, subject: 'WT1', type: 'seminar', room: 'V7', teacher: 'Jelínek' },
+  <div class="toast" id="toast"></div>
 
-            { id: 3, day: 1, start: 3, duration: 1, subject: 'ZAP', type: 'lecture', room: 'P1', teacher: 'Dostálová' },
+<script>
+/* ---------- ČASOVÁ MŘÍŽKA ---------- */
+// Sloupec 1. = 7:00, každý další +50 min (uprav dle reálného rozvrhu školy)
+const HOURS = Array.from({length:13}, (_,i)=>{
+  const startH = 7 + i;
+  const pad = n => String(n).padStart(2,'0');
+  return { n:i+1, label:`${pad(startH)}:00–${pad(startH)}:50` };
+});
 
-            { id: 4, day: 1, start: 4, duration: 2, subject: 'DB2', type: 'lecture', room: 'Výukové centrum', teacher: 'Bureš' },
+const DAYS = ['Pondělí','Úterý','Středa','Čtvrtek','Pátek'];
+const LANES = [2,2,3,2,1]; // počet "pater" pro každý den, aby se vešly alternativy vedle sebe
 
-            { id: 5, day: 1, start: 7, duration: 2, subject: 'APAi', type: 'seminar', room: 'V9', teacher: 'Bílek' },
-            { id: 6, day: 1, start: 7, duration: 2, subject: 'DB2', type: 'seminar', room: 'V7', teacher: 'Valentová' },
+/* ---------- BAREVNÁ PALETA PODLE PŘEDMĚTU ---------- */
+const COLORS = {
+  EKP:  '#c1613f',
+  OS:   '#3d5a80',
+  WT2:  '#4f8f74',
+  SDA:  '#b9892f',
+  PD_P: '#8457c9',
+  SI:   '#c2415f',
+  NUR:  '#1c7c9c',
+  DSA:  '#2f8f6a',
+  PS1a: '#d97b2e',
+  IVVZ: '#5b4b93',
+};
 
-            { id: 7, day: 1, start: 9, duration: 2, subject: 'APAi', type: 'seminar', room: 'V9', teacher: 'Bílek' },
+/* ---------- DATA ---------- */
+// day: 0=Po,1=Út,2=St,3=Čt,4=Pá | type: 'prednaska' (pevná) | 'cviceni' (k výběru)
+// start/span jsou ve sloupcích (hodinách), lane = pořadí "patra" v daném dni
+let idc = 1;
+const s = (day, type, subject, start, span, lane, room, cap, teacher) => ({
+  id: 's'+(idc++), day, type, subject, start, span, lane, room, cap, teacher
+});
 
-            // --- ÚTERÝ (Day 2) ---
-            { id: 8, day: 2, start: 1, duration: 2, subject: 'PG2', type: 'seminar', room: 'V9', teacher: 'Jeřábek' },
-            { id: 9, day: 2, start: 3, duration: 2, subject: 'PG2', type: 'seminar', room: 'V9', teacher: 'Jeřábek' },
-            { id: 10, day: 2, start: 1, duration: 2, subject: 'ZAP', type: 'seminar', room: 'U8', teacher: 'Dostálová' },
-            { id: 11, day: 2, start: 3, duration: 2, subject: 'ZAP', type: 'seminar', room: 'U18', teacher: 'Dostálová' },
+const SESSIONS = [
+  // PONDĚLÍ
+  s(0,'cviceni','WT2', 1,2,1,'V9','0/28','Smrčka'),
+  s(0,'cviceni','EKP', 2,2,0,'U18','0/30','Černá'),
+  s(0,'prednaska','OS', 4,2,0,'P2','0/60','Smrčka'),
+  s(0,'cviceni','OS',  6,2,0,'EIT','0/18','Smrčka'),
+  s(0,'cviceni','EKP', 8,2,0,'U2','0/30','Černá'),
+  s(0,'prednaska','SDA',10,2,0,'P2','0/60','Přibyl'),
+  s(0,'cviceni','SDA', 12,2,0,'EIT','0/19','Přibyl'),
 
-            { id: 12, day: 2, start: 5, duration: 2, subject: 'PS2', type: 'lecture', room: 'P3', teacher: 'Přibyl' },
-            { id: 13, day: 2, start: 7, duration: 2, subject: 'WT1', type: 'lecture', room: 'Výukové centrum', teacher: 'Smrčka' },
+  // ÚTERÝ
+  s(1,'cviceni','OS',  1,2,0,'EIT','0/18','Smrčka'),
+  s(1,'cviceni','PD_P',1,2,1,'V2','0/20','Jeřábek'),
+  s(1,'cviceni','OS',  3,2,0,'EIT','0/18','Smrčka'),
+  s(1,'cviceni','PD_P',3,2,1,'V2','0/20','Jeřábek'),
+  s(1,'prednaska','SI',5,2,0,'P2','0/60','Richta'),
+  s(1,'prednaska','PD_P',7,2,0,'P3','0/40','Jeřábek'),
+  s(1,'prednaska','NUR',10,1,0,'Výukové centrum','0/50','Jelínek'),
+  s(1,'cviceni','NUR', 11,3,0,'V9','0/25','Jelínek'),
 
+  // STŘEDA
+  s(2,'prednaska','PS1a',1,2,1,'U13','0/40','Přibyl'),
+  s(2,'cviceni','PS1a',  3,2,1,'EIT','0/20','Přibyl'),
+  s(2,'prednaska','DSA', 4,2,0,'P2','0/60','Hyrš'),
+  s(2,'cviceni','DSA',   6,2,0,'V4','0/18','Hyrš'),
+  s(2,'cviceni','NUR',   6,3,1,'V9','0/25','Valentová'),
+  s(2,'cviceni','PS1a',  7,2,2,'EIT','0/20','Přibyl'),
+  s(2,'prednaska','WT2', 9,2,0,'P2','0/60','Smrčka'),
+  s(2,'cviceni','WT2',   11,2,0,'V9','0/28','Smrčka'),
 
-            { id: 14, day: 2, start: 10, duration: 2, subject: 'AJAI_2', type: 'seminar', room: 'U15', teacher: 'Čech' },
-            { id: 31, day: 2, start: 9, duration: 2, subject: 'WT1', type: 'seminar', room: 'V9', teacher: 'Smrčka' },
+  // ČTVRTEK
+  s(3,'cviceni','DSA', 5,2,0,'V9','0/28','Hyrš'),
+  s(3,'prednaska','IVVZ',7,2,0,'V4','0/20','Pavlinec, Další AP'),
+  s(3,'cviceni','SDA', 9,2,0,'EIT','0/19','Fraj'),
+  s(3,'cviceni','SI',  9,2,1,'V7','0/28','Hyrš'),
+  s(3,'cviceni','SDA', 11,2,0,'EIT','0/19','Fraj'),
 
-            // --- STŘEDA (Day 3) ---
-            { id: 15, day: 3, start: 5, duration: 2, subject: 'PS2', type: 'seminar', room: 'EIT', teacher: 'Přibyl' },
-            { id: 16, day: 3, start: 7, duration: 2, subject: 'DB2', type: 'seminar', room: 'V9', teacher: 'Valentová' },
-            { id: 17, day: 3, start: 7, duration: 2, subject: 'PS2', type: 'seminar', room: 'EIT', teacher: 'Přibyl' },
+  // PÁTEK
+  s(4,'cviceni','SI',  5,2,0,'V9','0/28','Hyrš'),
+  s(4,'cviceni','IVVZ',7,2,0,'V4','0/20','Pavlinec, Další AP'),
+];
 
-            { id: 18, day: 3, start: 9, duration: 2, subject: 'APAi', type: 'lecture', room: 'P3', teacher: 'Bílek' },
+/* ---------- STAV ---------- */
+// pro každý předmět uchováváme id vybraného cvičení (nebo null)
+const state = {};
+[...new Set(SESSIONS.map(x=>x.subject))].forEach(subj => state[subj] = null);
 
-            { id: 19, day: 3, start: 11, duration: 2, subject: 'AJAI_2', type: 'seminar', room: 'U14', teacher: 'Čech' },
-            { id: 32, day: 3, start: 11, duration: 2, subject: 'APAi', type: 'seminar', room: 'V9', teacher: 'Bílek' },
+/* ---------- POMOCNÉ FUNKCE ---------- */
+function overlaps(a, b){
+  return a.day === b.day && a.start < (b.start + b.span) && b.start < (a.start + a.span);
+}
 
-            // --- ČTVRTEK (Day 4) ---
-            { id: 20, day: 4, start: 1, duration: 2, subject: 'PG2', type: 'seminar', room: 'V9', teacher: 'Vopálenský' },
-            { id: 21, day: 4, start: 3, duration: 2, subject: 'AJAI_2', type: 'seminar', room: 'J1', teacher: 'Dostálová' },
-            { id: 22, day: 4, start: 1, duration: 2, subject: 'ZAP', type: 'seminar', room: 'U16', teacher: 'Dostálová' },
-            { id: 23, day: 4, start: 3, duration: 2, subject: 'WT1', type: 'seminar', room: 'V8', teacher: 'Jelínek' },
+function activeSessions(excludeSubject){
+  // všechny přednášky + aktuálně vybraná cvičení jiných předmětů
+  const active = SESSIONS.filter(x => x.type === 'prednaska');
+  Object.entries(state).forEach(([subj, id]) => {
+    if (id && subj !== excludeSubject){
+      active.push(SESSIONS.find(x => x.id === id));
+    }
+  });
+  return active;
+}
 
-            { id: 24, day: 4, start: 6, duration: 2, subject: 'PG2', type: 'lecture', room: 'Výukové centrum', teacher: 'Richta' },
-            { id: 25, day: 4, start: 8, duration: 2, subject: 'MAT', type: 'lecture', room: 'P2', teacher: 'Stolín' },
-            { id: 26, day: 4, start: 10, duration: 2, subject: 'MAT', type: 'seminar', room: 'U15', teacher: 'Stolín' },
-            { id: 27, day: 4, start: 12, duration: 2, subject: 'PS2', type: 'seminar', room: 'EIT', teacher: 'Ježek' },
-            { id: 33, day: 4, start: 10, duration: 2, subject: 'PS2', type: 'seminar', room: 'EIT', teacher: 'Ježek' },
+function conflictFor(session){
+  const others = activeSessions(session.subject);
+  return others.find(o => overlaps(o, session));
+}
 
-            // --- PÁTEK (Day 5) ---
-            { id: 28, day: 5, start: 2, duration: 2, subject: 'MAT', type: 'seminar', room: 'U15', teacher: 'Stolín' },
-            { id: 29, day: 5, start: 4, duration: 2, subject: 'MAT', type: 'seminar', room: 'U15', teacher: 'Stolín' },
-            { id: 30, day: 5, start: 4, duration: 2, subject: 'DB2', type: 'seminar', room: 'V9', teacher: 'Valentová' },
-        ];
+function rowFor(day, lane){
+  let row = 2; // řádek 1 = hlavička hodin
+  for(let d=0; d<day; d++) row += LANES[d];
+  return row + lane;
+}
 
-        let selectedSeminars = new Set();
+/* ---------- VYKRESLENÍ MŘÍŽKY ---------- */
+const gridEl = document.getElementById('grid');
 
-        function init() {
-            renderGrid();
-            renderEvents();
+function buildGridSkeleton(){
+  gridEl.innerHTML = '';
+
+  // roh
+  const corner = document.createElement('div');
+  corner.className = 'corner';
+  gridEl.appendChild(corner);
+
+  // hlavička hodin
+  HOURS.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'hour-head';
+    el.style.gridColumn = `${h.n+1}`;
+    el.style.gridRow = '1';
+    el.innerHTML = `<b>${h.n}.</b>${h.label}`;
+    gridEl.appendChild(el);
+  });
+
+  // popisky dnů
+  DAYS.forEach((name, d) => {
+    const el = document.createElement('div');
+    el.className = 'day-label';
+    el.textContent = name;
+    el.style.gridColumn = '1';
+    el.style.gridRow = `${rowFor(d,0)} / span ${LANES[d]}`;
+    gridEl.appendChild(el);
+  });
+
+  gridEl.style.gridTemplateRows = `auto repeat(${LANES.reduce((a,b)=>a+b,0)}, minmax(56px,auto))`;
+}
+
+function renderSessions(){
+  // odstranit staré buňky (ponechat hlavičku a popisky dnů)
+  gridEl.querySelectorAll('.cell').forEach(el => el.remove());
+
+  SESSIONS.forEach(session => {
+    const el = document.createElement('div');
+    const color = COLORS[session.subject] || '#555';
+    el.style.background = color;
+    el.style.gridColumn = `${session.start+1} / span ${session.span}`;
+    el.style.gridRow = `${rowFor(session.day, session.lane)}`;
+
+    const typeLabel = session.type === 'prednaska' ? '1. př' : '1. cvi';
+
+    el.innerHTML = `
+      <span class="subj">${session.subject}</span>
+      <span class="meta">${typeLabel} · ${session.room} · ${session.cap}</span>
+      <span class="teacher">${session.teacher}</span>
+    `;
+
+    if (session.type === 'prednaska'){
+      el.className = 'cell lecture';
+    } else {
+      el.className = 'cell cviceni';
+      const isSelected = state[session.subject] === session.id;
+      if (isSelected){
+        el.classList.add('selected');
+      } else {
+        const conflict = conflictFor(session);
+        const takenElsewhere = state[session.subject] && state[session.subject] !== session.id;
+        if (conflict){
+          el.classList.add('disabled');
+          el.title = `Koliduje s ${conflict.subject} (${conflict.type === 'prednaska' ? 'přednáška' : 'cvičení'})`;
+        } else if (takenElsewhere){
+          const chosen = SESSIONS.find(x => x.id === state[session.subject]);
+          el.classList.add('taken');
+          el.title = `${session.subject} už máš vybrané u jiného cvičení (${chosen.room}, ${chosen.teacher}) — klikni pro přepnutí sem`;
+        } else {
+          el.classList.add('available');
         }
+      }
+      el.addEventListener('click', () => onCvicClick(session));
+    }
 
-        function renderGrid() {
-            const grid = document.getElementById('grid');
-            grid.innerHTML = '';
+    gridEl.appendChild(el);
+  });
+}
 
-            const corner = document.createElement('div');
-            corner.className = 'cell header-cell';
-            grid.appendChild(corner);
+/* ---------- INTERAKCE ---------- */
+function onCvicClick(session){
+  const currentlySelected = state[session.subject] === session.id;
 
-            for (let i = 0; i <= 13; i++) {
-                const el = document.createElement('div');
-                el.className = 'cell header-cell';
-                el.innerText = i + ".";
-                grid.appendChild(el);
-            }
+  if (currentlySelected){
+    state[session.subject] = null;
+    renderAll();
+    return;
+  }
 
-            const days = ['Po', 'Út', 'St', 'Čt', 'Pá'];
-            days.forEach((day, index) => {
-                const dayLabel = document.createElement('div');
-                dayLabel.className = 'cell day-label';
-                dayLabel.style.gridRow = index + 2;
-                dayLabel.style.gridColumn = 1;
-                dayLabel.innerText = day;
-                grid.appendChild(dayLabel);
+  const conflict = conflictFor(session);
+  if (conflict){
+    showToast(`Nejde vybrat — koliduje s ${conflict.subject} (${conflict.room}, ${conflict.teacher}).`);
+    return;
+  }
 
-                for (let i = 0; i <= 13; i++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    cell.style.gridRow = index + 2;
-                    cell.style.gridColumn = i + 2;
-                    grid.appendChild(cell);
-                }
-            });
-        }
+  state[session.subject] = session.id;
+  renderAll();
+}
 
-        function renderEvents() {
-            document.querySelectorAll('.event').forEach(e => e.remove());
-            const grid = document.getElementById('grid');
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => t.classList.remove('show'), 2600);
+}
 
-            for (let d = 1; d <= 5; d++) {
-                const dayEvents = subjects.filter(s => s.day === d);
+/* ---------- SOUHRN ---------- */
+function renderSummary(){
+  const box = document.getElementById('summary');
+  box.innerHTML = '';
+  let totalHours = 0;
 
-                dayEvents.sort((a, b) => a.start - b.start || b.duration - a.duration);
+  const subjects = [...new Set(SESSIONS.map(x=>x.subject))].sort();
 
-                let timeMatrix = Array(14).fill(null).map(() => []);
+  subjects.forEach(subj => {
+    const lecture = SESSIONS.find(x => x.subject === subj && x.type === 'prednaska');
+    const chosenId = state[subj];
+    const chosen = chosenId ? SESSIONS.find(x => x.id === chosenId) : null;
+    const hasCviceni = SESSIONS.some(x => x.subject === subj && x.type === 'cviceni');
 
-                dayEvents.forEach(ev => {
-                    let slotIndex = 0;
-                    let fits = false;
+    const row = document.createElement('div');
+    row.className = 'sum-row';
 
-                    while (!fits) {
-                        fits = true;
-                        for (let t = ev.start; t < ev.start + ev.duration; t++) {
-                            if (timeMatrix[t] && timeMatrix[t][slotIndex]) {
-                                fits = false;
-                                break;
-                            }
-                        }
-                        if (!fits) slotIndex++;
-                    }
+    let detailHtml = '';
+    if (lecture){
+      totalHours += lecture.span;
+      detailHtml += `${DAYS[lecture.day].slice(0,2)} ${lecture.start}.–${lecture.start+lecture.span-1}. (př)<br>`;
+    }
+    if (hasCviceni){
+      if (chosen){
+        totalHours += chosen.span;
+        detailHtml += `${DAYS[chosen.day].slice(0,2)} ${chosen.start}.–${chosen.start+chosen.span-1}. (cvi, ${chosen.teacher})`;
+      } else {
+        detailHtml += `<span class="warn">cvičení nezvoleno</span>`;
+      }
+    }
 
-                    for (let t = ev.start; t < ev.start + ev.duration; t++) {
-                        if (timeMatrix[t]) timeMatrix[t][slotIndex] = true;
-                    }
+    row.innerHTML = `
+      <span class="sum-subj" style="color:${COLORS[subj]}">${subj}</span>
+      <span class="sum-detail">${detailHtml}</span>
+    `;
+    box.appendChild(row);
+  });
 
-                    ev.visualSlot = slotIndex;
-                });
+  document.getElementById('totalHours').textContent = totalHours;
+}
 
-                dayEvents.forEach(item => {
-                    let maxSlotsInRange = 0;
-                    for (let t = item.start; t < item.start + item.duration; t++) {
-                        if (timeMatrix[t] && timeMatrix[t].length > maxSlotsInRange) {
-                            maxSlotsInRange = timeMatrix[t].length;
-                        }
-                    }
+/* ---------- HLAVNÍ RENDER ---------- */
+function renderAll(){
+  renderSessions();
+  renderSummary();
+}
 
-                    const rowHeight = 120;
-                    const heightPercent = 100 / Math.max(1, maxSlotsInRange);
-                    const topPercent = item.visualSlot * heightPercent;
+document.getElementById('resetBtn').addEventListener('click', () => {
+  Object.keys(state).forEach(k => state[k] = null);
+  renderAll();
+});
 
-                    const el = document.createElement('div');
-                    el.classList.add('event');
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const btn = document.getElementById('exportBtn');
+  const target = document.querySelector('.grid-wrap');
 
-                    if (item.type === 'lecture') {
-                        el.classList.add('lecture');
-                    } else {
-                        el.classList.add('seminar');
+  if (typeof html2canvas === 'undefined'){
+    showToast('Export se nepodařilo načíst — zkontroluj připojení k internetu a zkus to znovu.');
+    return;
+  }
 
-                        const isSelected = selectedSeminars.has(item.id);
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Ukládám…';
 
-                        if (isSelected) {
-                            el.classList.add('selected');
-                        }
+  html2canvas(target, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = 'muj-rozvrh.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }).catch(() => {
+    showToast('Export obrázku se nepovedl, zkus to prosím znovu.');
+  }).finally(() => {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  });
+});
 
-                        const selectedSameSubject = [...selectedSeminars]
-                            .map(id => subjects.find(s => s.id === id))
-                            .find(s => s && s.subject === item.subject);
-
-                        if (selectedSameSubject && !isSelected && selectedSameSubject.subject === item.subject) {
-                            el.classList.add('dimmed');
-                        } else {
-                            el.onclick = () => toggleSeminar(item);
-                        }
-                    }
-
-                    el.style.gridColumnStart = item.start + 2;
-                    el.style.gridColumnEnd = `span ${item.duration}`;
-                    el.style.gridRowStart = item.day + 1;
-                    el.style.height = `calc(${heightPercent}% - 4px)`;
-                    el.style.marginTop = `calc(${topPercent / 100 * rowHeight}px)`;
-
-                    el.innerHTML = `
-                    <div class="subject-code">${item.subject}</div>
-                    <div class="type-info">${item.type === 'lecture' ? 'Přednáška' : 'Cvičení'}</div>
-                    ${maxSlotsInRange < 4 ? `<div class="details">${item.room} <br> ${item.teacher}</div>` : ''}
-                `;
-
-                    grid.appendChild(el);
-                });
-            }
-        }
-
-        function toggleSeminar(item) {
-            if (selectedSeminars.has(item.id)) {
-                selectedSeminars.delete(item.id);
-            } else {
-                if (checkConflict(item)) {
-                    alert("Kolize! V tomto čase už máš jiný předmět.");
-                    return;
-                }
-
-                subjects.forEach(s => {
-                    if (s.subject === item.subject && s.type === 'seminar' && selectedSeminars.has(s.id)) {
-                        selectedSeminars.delete(s.id);
-                    }
-                });
-
-                selectedSeminars.add(item.id);
-            }
-            renderEvents();
-        }
-
-        function checkConflict(newItem) {
-            const activeItems = subjects.filter(s => s.type === 'lecture' || selectedSeminars.has(s.id));
-
-            for (let other of activeItems) {
-                if (other.day === newItem.day) {
-                    const newEnd = newItem.start + newItem.duration;
-                    const otherEnd = other.start + other.duration;
-
-                    if (newItem.start < otherEnd && newEnd > other.start) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function downloadImage() {
-            const grid = document.getElementById('grid').cloneNode(true);
-
-            grid.querySelectorAll('.seminar:not(.selected)').forEach(e => e.remove());
-
-            grid.classList.add('export-mode');
-
-            grid.querySelectorAll('.seminar.selected').forEach(el => {
-                el.style.height = 'calc(100% - 4px)';
-                el.style.marginTop = '0';
-            });
-
-            const wrap = document.createElement('div');
-            wrap.style.background = 'white';
-            wrap.style.padding = '10px';
-            wrap.appendChild(grid);
-            document.body.appendChild(wrap);
-
-            html2canvas(wrap, {
-                scale: 2,
-                backgroundColor: '#ffffff'
-            }).then(canvas => {
-                const a = document.createElement('a');
-                a.download = 'rozvrh.png';
-                a.href = canvas.toDataURL('image/png');
-                a.click();
-                wrap.remove();
-            });
-        }
-
-
-
-        init();
-
-    </script>
-
+buildGridSkeleton();
+renderAll();
+</script>
 </body>
-
-
 </html>
