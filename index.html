@@ -234,13 +234,33 @@
     display:flex;
     justify-content:space-between;
     align-items:flex-start;
-    gap:10px;
+    gap:8px;
     padding:8px 0;
     border-bottom:1px solid var(--line);
     font-size:.86rem;
   }
   .sum-row:last-of-type{border-bottom:none;}
-  .sum-subj{font-weight:700;}
+  .sum-row.hidden-row{opacity:.45;}
+  .eye-btn{
+    flex:none;
+    border:none;
+    background:none;
+    cursor:pointer;
+    font-size:.9rem;
+    padding:2px 4px 2px 0;
+    line-height:1;
+    opacity:.75;
+  }
+  .eye-btn:hover{opacity:1;}
+  .sum-subj{font-weight:700; flex:1;}
+  .sum-subj-wrap{display:flex; flex-direction:column; flex:1; min-width:0;}
+  .sum-fullname{
+    font-weight:400;
+    font-size:.72rem;
+    color:var(--muted);
+    white-space:normal;
+    line-height:1.3;
+  }
   .sum-detail{color:var(--muted); text-align:right; font-size:.8rem; line-height:1.4;}
   .sum-detail .warn{color:var(--bad); font-weight:600;}
   .sum-total{
@@ -277,14 +297,6 @@
 </style>
 </head>
 <body>
-
-  <h1>Tvorba rozvrhu</h1>
-  <p class="lede">
-    Přednášky (🔒) jsou pevně dané a nedají se měnit. Klikni na cvičení, které chceš zapsat —
-    z každého předmětu jde vybrat jen jedno a nejdou zvolit dvě věci ve stejný čas.
-    Časy hodin (<code>1.–13.</code>) jsou odhadem 7:00–19:50 po 50 min., uprav pole <code>HOURS</code> v kódu, pokud má vaše škola jiné rozvržení.
-  </p>
-
   <div class="toolbar">
     <button class="reset" id="resetBtn">Vymazat výběr</button>
     <button class="reset" id="exportBtn" style="background:var(--ok);">Stáhnout jako obrázek</button>
@@ -312,13 +324,22 @@
   <div class="toast" id="toast"></div>
 
 <script>
-/* ---------- ČASOVÁ MŘÍŽKA ---------- */
-// Sloupec 1. = 7:00, každý další +50 min (uprav dle reálného rozvrhu školy)
-const HOURS = Array.from({length:13}, (_,i)=>{
-  const startH = 7 + i;
-  const pad = n => String(n).padStart(2,'0');
-  return { n:i+1, label:`${pad(startH)}:00–${pad(startH)}:50` };
-});
+/* ---------- ČASOVÁ MŘÍŽKA (reálné časy hodin) ---------- */
+const HOURS = [
+  { n:1,  label:'8:00–8:45' },
+  { n:2,  label:'8:50–9:35' },
+  { n:3,  label:'9:45–10:30' },
+  { n:4,  label:'10:35–11:20' },
+  { n:5,  label:'11:30–12:15' },
+  { n:6,  label:'12:35–13:20' },
+  { n:7,  label:'13:30–14:15' },
+  { n:8,  label:'14:20–15:05' },
+  { n:9,  label:'15:15–16:00' },
+  { n:10, label:'16:05–16:50' },
+  { n:11, label:'17:00–17:45' },
+  { n:12, label:'17:50–18:35' },
+  { n:13, label:'18:45–19:30' },
+];
 
 const DAYS = ['Pondělí','Úterý','Středa','Čtvrtek','Pátek'];
 const LANES = [2,2,3,2,1]; // počet "pater" pro každý den, aby se vešly alternativy vedle sebe
@@ -376,6 +397,8 @@ const SESSIONS = [
   s(2,'cviceni','WT2',   11,2,0,'V9','0/28','Smrčka'),
 
   // ČTVRTEK
+  s(3,'prednaska','EP',1,2,0,'U6','0/30','Lízalová'),
+  s(3,'cviceni','EP', 3,2,0,'TV','0/30','Lízalová'),
   s(3,'cviceni','DSA', 5,2,0,'V9','0/28','Hyrš'),
   s(3,'prednaska','IVVZ',7,2,0,'V4','0/20','Pavlinec, Další AP'),
   s(3,'cviceni','SDA', 9,2,0,'EIT','0/19','Fraj'),
@@ -387,10 +410,28 @@ const SESSIONS = [
   s(4,'cviceni','IVVZ',7,2,0,'V4','0/20','Pavlinec, Další AP'),
 ];
 
+/* ---------- CELÉ NÁZVY PŘEDMĚTŮ ---------- */
+const FULL_NAMES = {
+  EKP:  'Efektivní komunikace a prezentace (PV B)',
+  EP:   'Ekonomika podniku (PV B)',
+  OS:   'Operační systémy (P)',
+  WT2:  'Webové technologie (P)',
+  SDA:  'Serverová a desktopová administrace (PV A1)',
+  PD_P: 'Práce s daty (PV A1)',
+  SI:   'Softwarové inženýrství (P)',
+  NUR:  'Návrh uživatelského rozhraní (P)',
+  DSA:  'Datové struktury a algoritmy (P)',
+  PS1a: 'Úvod do počítačových sítí (N)',
+  IVVZ: 'Informatika ve veřejné správě (PV B)',
+};
+
 /* ---------- STAV ---------- */
 // pro každý předmět uchováváme id vybraného cvičení (nebo null)
 const state = {};
 [...new Set(SESSIONS.map(x=>x.subject))].forEach(subj => state[subj] = null);
+
+// předměty, které si uživatel schoval z tabulky (jen vizuálně, výběr zůstává zachovaný)
+const hiddenSubjects = new Set();
 
 /* ---------- POMOCNÉ FUNKCE ---------- */
 function overlaps(a, b){
@@ -398,10 +439,10 @@ function overlaps(a, b){
 }
 
 function activeSessions(excludeSubject){
-  // všechny přednášky + aktuálně vybraná cvičení jiných předmětů
-  const active = SESSIONS.filter(x => x.type === 'prednaska');
+  // skryté předměty nebrání výběru v jejich čase — chovají se, jako by v rozvrhu nebyly
+  const active = SESSIONS.filter(x => x.type === 'prednaska' && !hiddenSubjects.has(x.subject));
   Object.entries(state).forEach(([subj, id]) => {
-    if (id && subj !== excludeSubject){
+    if (id && subj !== excludeSubject && !hiddenSubjects.has(subj)){
       active.push(SESSIONS.find(x => x.id === id));
     }
   });
@@ -458,6 +499,8 @@ function renderSessions(){
   gridEl.querySelectorAll('.cell').forEach(el => el.remove());
 
   SESSIONS.forEach(session => {
+    if (hiddenSubjects.has(session.subject)) return;
+
     const el = document.createElement('div');
     const color = COLORS[session.subject] || '#555';
     el.style.background = color;
@@ -541,9 +584,11 @@ function renderSummary(){
     const chosenId = state[subj];
     const chosen = chosenId ? SESSIONS.find(x => x.id === chosenId) : null;
     const hasCviceni = SESSIONS.some(x => x.subject === subj && x.type === 'cviceni');
+    const isHidden = hiddenSubjects.has(subj);
 
     const row = document.createElement('div');
     row.className = 'sum-row';
+    if (isHidden) row.classList.add('hidden-row');
 
     let detailHtml = '';
     if (lecture){
@@ -560,13 +605,24 @@ function renderSummary(){
     }
 
     row.innerHTML = `
-      <span class="sum-subj" style="color:${COLORS[subj]}">${subj}</span>
+      <button class="eye-btn" title="${isHidden ? 'Zobrazit v tabulce' : 'Skrýt z tabulky'}" data-subj="${subj}">${isHidden ? '🚫' : '👁'}</button>
+      <span class="sum-subj-wrap">
+        <span class="sum-subj" style="color:${COLORS[subj]}">${subj}</span>
+        <span class="sum-fullname">${FULL_NAMES[subj] || ''}</span>
+      </span>
       <span class="sum-detail">${detailHtml}</span>
     `;
+    row.querySelector('.eye-btn').addEventListener('click', () => toggleHidden(subj));
     box.appendChild(row);
   });
 
   document.getElementById('totalHours').textContent = totalHours;
+}
+
+function toggleHidden(subj){
+  if (hiddenSubjects.has(subj)) hiddenSubjects.delete(subj);
+  else hiddenSubjects.add(subj);
+  renderAll();
 }
 
 /* ---------- HLAVNÍ RENDER ---------- */
@@ -580,9 +636,80 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   renderAll();
 });
 
+/* ---------- EXPORT OBRÁZKU ---------- */
+function getActiveSessionsForExport(){
+  const lectures = SESSIONS.filter(x => x.type === 'prednaska' && !hiddenSubjects.has(x.subject));
+  const chosen = Object.entries(state)
+    .filter(([subj, id]) => id && !hiddenSubjects.has(subj))
+    .map(([subj, id]) => SESSIONS.find(x => x.id === id));
+  return [...lectures, ...chosen];
+}
+
+function buildExportNode(){
+  const activeList = getActiveSessionsForExport();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'grid-wrap';
+  wrap.style.position = 'fixed';
+  wrap.style.top = '0';
+  wrap.style.left = '-9999px';
+  wrap.style.width = '1150px';
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  wrap.appendChild(grid);
+
+  const corner = document.createElement('div');
+  corner.className = 'corner';
+  grid.appendChild(corner);
+
+  HOURS.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'hour-head';
+    el.style.gridColumn = `${h.n+1}`;
+    el.style.gridRow = '1';
+    el.innerHTML = `<b>${h.n}.</b>${h.label}`;
+    grid.appendChild(el);
+  });
+
+  // v exportu má každý den jen jedno "patro" — vybrané věci se v rámci
+  // dne nikdy nepřekrývají časově, takže jdou hezky vedle sebe do jedné řady
+  const dayRow = d => 2 + d;
+
+  DAYS.forEach((name, d) => {
+    const el = document.createElement('div');
+    el.className = 'day-label';
+    el.textContent = name;
+    el.style.gridColumn = '1';
+    el.style.gridRow = `${dayRow(d)}`;
+    grid.appendChild(el);
+  });
+
+  grid.style.gridTemplateRows = `auto repeat(${DAYS.length}, minmax(56px,auto))`;
+
+  activeList.forEach(session => {
+    const el = document.createElement('div');
+    const color = COLORS[session.subject] || '#555';
+    el.style.background = color;
+    el.style.gridColumn = `${session.start+1} / span ${session.span}`;
+    el.style.gridRow = `${dayRow(session.day)}`;
+
+    const typeLabel = session.type === 'prednaska' ? '1. př' : '1. cvi';
+    el.className = session.type === 'prednaska' ? 'cell lecture' : 'cell cviceni selected';
+    el.innerHTML = `
+      <span class="subj">${session.subject}</span>
+      <span class="meta">${typeLabel} · ${session.room} · ${session.cap}</span>
+      <span class="teacher">${session.teacher}</span>
+    `;
+    grid.appendChild(el);
+  });
+
+  document.body.appendChild(wrap);
+  return wrap;
+}
+
 document.getElementById('exportBtn').addEventListener('click', () => {
   const btn = document.getElementById('exportBtn');
-  const target = document.querySelector('.grid-wrap');
 
   if (typeof html2canvas === 'undefined'){
     showToast('Export se nepodařilo načíst — zkontroluj připojení k internetu a zkus to znovu.');
@@ -593,7 +720,9 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   const originalLabel = btn.textContent;
   btn.textContent = 'Ukládám…';
 
-  html2canvas(target, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
+  const exportNode = buildExportNode();
+
+  html2canvas(exportNode, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
     const link = document.createElement('a');
     link.download = 'muj-rozvrh.png';
     link.href = canvas.toDataURL('image/png');
@@ -601,6 +730,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   }).catch(() => {
     showToast('Export obrázku se nepovedl, zkus to prosím znovu.');
   }).finally(() => {
+    exportNode.remove();
     btn.disabled = false;
     btn.textContent = originalLabel;
   });
